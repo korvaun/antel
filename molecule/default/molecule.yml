@@ -1,37 +1,32 @@
 ---
-# Molecule scenario: throwaway docker containers as playbook targets.
-# Inside the devcontainer the engine is the docker-in-docker daemon; on a bare host
-# it's your local docker. The OpenTelemetry callback runs on the control node (where
-# molecule runs ansible) and exports to the Jaeger container — see observability/compose.yaml.
+# Molecule scenario: throwaway podman containers as playbook targets.
+# Inside the devcontainer the podman CLI talks to the HOST's rootless Podman
+# (CONTAINER_HOST in devcontainer.json), so these run as sibling containers.
+# The OpenTelemetry callback runs on the control node (where molecule runs ansible)
+# and exports to the Jaeger container on the host — reached via host.containers.internal.
 driver:
-  name: docker
+  name: podman
 
 platforms:
   # geerlingguy images are systemd-enabled and ansible-ready (the de-facto molecule targets).
-  # The privileged + cgroup settings let systemd boot inside the container; drop them if a
-  # plain (non-systemd) target is enough for what you're testing.
+  # privileged + systemd init let services boot inside the container; drop them if a plain
+  # (non-systemd) target is enough for what you're testing.
   - name: antel-web
     image: docker.io/geerlingguy/docker-ubuntu2404-ansible:latest
     pre_build_image: true
     privileged: true
-    cgroupns_mode: host
     command: /usr/lib/systemd/systemd
-    volumes:
-      - /sys/fs/cgroup:/sys/fs/cgroup:rw
   - name: antel-db
     image: docker.io/geerlingguy/docker-ubuntu2404-ansible:latest
     pre_build_image: true
     privileged: true
-    cgroupns_mode: host
     command: /usr/lib/systemd/systemd
-    volumes:
-      - /sys/fs/cgroup:/sys/fs/cgroup:rw
 
 provisioner:
   name: ansible
   env:
     ANSIBLE_CALLBACKS_ENABLED: community.general.opentelemetry
-    OTEL_EXPORTER_OTLP_ENDPOINT: http://localhost:4317
+    OTEL_EXPORTER_OTLP_ENDPOINT: http://host.containers.internal:4317
     OTEL_SERVICE_NAME: ansible-molecule
   playbooks:
     converge: converge.yml

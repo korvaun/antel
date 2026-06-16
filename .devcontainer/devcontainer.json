@@ -2,38 +2,39 @@
   "name": "antel",
   "image": "mcr.microsoft.com/devcontainers/python:1-3.12-bookworm",
 
-  // docker-in-docker gives Molecule a container engine *inside* the devcontainer to
-  // spin throwaway target containers and run the Jaeger viewer. Requires a privileged
-  // container (the feature configures it; some Podman hosts also need runArgs below).
+  // Claude Code CLI inside the container.
   "features": {
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
-    // Installs the Claude Code CLI inside the container.
     "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
   },
 
-  // Reuse the host's Claude Code login: bind-mount the ~/.claude *directory*
-  // (credentials live in ~/.claude/.credentials.json). Mounting the directory — not
-  // the single ~/.claude.json file — avoids atomic-write/rename failures.
-  // The container then shares your real credentials and refreshes tokens back to the host.
-  // Cleaner-but-requires-one-login alternative:
-  //   "source=claude-code-config,target=/home/vscode/.claude,type=volume"
+  // Rootless Podman: map the host UID onto the container user so bind mounts
+  // (the ~/.claude login + the podman socket) are owned correctly.
+  "runArgs": ["--userns=keep-id"],
+
   "mounts": [
-    "source=${localEnv:HOME}/.claude,target=/home/vscode/.claude,type=bind,consistency=cached"
+    // Reuse the host's Claude Code login (credentials in ~/.claude/.credentials.json) —
+    // bind the *directory* (not the single ~/.claude.json) to avoid atomic-write failures.
+    "source=${localEnv:HOME}/.claude,target=/home/vscode/.claude,type=bind,consistency=cached",
+
+    // Talk to the HOST's rootless Podman (podman-outside-of-podman): Molecule target
+    // containers and the Jaeger viewer run as *siblings* on the host engine.
+    // Enable the host socket first:  systemctl --user enable --now podman.socket
+    // If $XDG_RUNTIME_DIR is unset on your host, hardcode /run/user/<uid>/podman/podman.sock.
+    "source=${localEnv:XDG_RUNTIME_DIR}/podman/podman.sock,target=/run/podman/podman.sock,type=bind"
   ],
 
-  // Uncomment if nested docker fails to start under your Podman host:
-  // "runArgs": ["--privileged"],
+  "containerEnv": {
+    "CONTAINER_HOST": "unix:///run/podman/podman.sock",
+    "DOCKER_HOST": "unix:///run/podman/podman.sock"
+  },
 
-  // uv lives in the container only; install it, then sync the pinned toolchain + collections.
   "remoteEnv": {
     "PATH": "/home/vscode/.local/bin:${containerEnv:PATH}"
   },
-  "postCreateCommand": "curl -LsSf https://astral.sh/uv/install.sh | sh && uv sync && uv run ansible-galaxy collection install -r collections/requirements.yml",
 
-  "forwardPorts": [16686],
-  "portsAttributes": {
-    "16686": { "label": "Jaeger UI" }
-  },
+  // Install the podman client (used as a remote client against the host socket) + uv,
+  // then sync the pinned toolchain and Ansible collections.
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y podman && curl -LsSf https://astral.sh/uv/install.sh | sh && uv sync && uv run ansible-galaxy collection install -r collections/requirements.yml",
 
   "remoteUser": "vscode"
 }

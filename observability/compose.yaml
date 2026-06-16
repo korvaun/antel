@@ -1,9 +1,10 @@
 # Local observability stack for exploring the Ansible OpenTelemetry callback output.
-#   docker compose -f observability/compose.yaml up -d
-#   open http://localhost:16686   (Jaeger UI)
-#   ...run a playbook (callback exports to localhost:4317)...
-#   docker compose -f observability/compose.yaml down
-# Inside the devcontainer "docker" is the docker-in-docker daemon.
+#   podman compose -f observability/compose.yaml up -d
+#   open http://localhost:16686   (Jaeger UI, on the host)
+#   ...run a playbook (callback exports to host.containers.internal:4317)...
+#   podman compose -f observability/compose.yaml down
+# Inside the devcontainer, podman talks to the host engine, so Jaeger runs as a
+# sibling on the host and its ports are published on the host.
 #
 # Jaeger all-in-one bundles an OTLP receiver + storage + UI in one container,
 # so no separate OpenTelemetry Collector is needed for this exploration.

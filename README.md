@@ -4,19 +4,22 @@ SRE Ansible automation for **antel**. Primary goal: explore the output of Ansibl
 **OpenTelemetry callback** (`community.general.opentelemetry`) — run playbooks against
 throwaway containers and view the emitted traces in Jaeger.
 
-Work inside the **devcontainer** (`.devcontainer/`): the only thing on your host is a
-container engine (Podman); `uv`, Ansible, Molecule, the targets, and Jaeger all live
-inside. Open the repo in VS Code "Reopen in Container", or `devcontainer up --workspace-folder .`.
+Work inside the **devcontainer** (`.devcontainer/`): the only thing installed on your host
+is **Podman**; `uv`, Ansible, Molecule, and the Claude Code CLI run inside. Molecule targets
+and the Jaeger viewer run as ephemeral sibling containers on the host's rootless Podman (the
+devcontainer talks to it via the mounted socket). See [`.devcontainer/README.md`](.devcontainer/README.md)
+for host prerequisites and VS Code settings. Open the repo with "Reopen in Container", or
+`devcontainer up --workspace-folder .`.
 
 ## Layout
 
 ```
 antel/
-├── .devcontainer/devcontainer.json  # isolated dev env (python + docker-in-docker + uv)
+├── .devcontainer/              # isolated dev env (python + uv + claude-code; host Podman socket)
 ├── ansible.cfg                 # plugin paths + opentelemetry callback enabled; no global inventory (pass -i)
-├── pyproject.toml              # uv-managed toolchain (ansible, linters, molecule[docker], otel libs)
+├── pyproject.toml              # uv-managed toolchain (ansible, linters, molecule[podman], otel libs)
 ├── observability/compose.yaml  # Jaeger all-in-one (OTLP receiver + UI) for viewing traces
-├── molecule/default/           # throwaway docker targets to run playbooks against
+├── molecule/default/           # throwaway podman targets to run playbooks against
 ├── collections/requirements.yml
 ├── inventories/
 │   ├── production/{hosts.yml,group_vars/,host_vars/}
@@ -57,7 +60,7 @@ uv run ansible-playbook -i inventories/staging/hosts.yml playbooks/site.yml --ch
 # Run for real
 uv run ansible-playbook -i inventories/staging/hosts.yml playbooks/site.yml
 
-# Test roles against throwaway docker containers (via docker-in-docker)
+# Test roles against throwaway podman containers (siblings on the host engine)
 uv run molecule test          # full create → converge → verify → destroy
 uv run molecule converge      # just apply the playbook (keeps containers)
 
@@ -72,23 +75,24 @@ The whole point of this repo. The `community.general.opentelemetry` callback (en
 in `OTEL_EXPORTER_OTLP_ENDPOINT`. Jaeger all-in-one receives and renders them.
 
 ```bash
-# 1. Start the viewer (OTLP in on :4317, UI on :16686)
-docker compose -f observability/compose.yaml up -d
+# 1. Start the viewer (runs on the host engine; OTLP in on :4317, UI on :16686)
+podman compose -f observability/compose.yaml up -d
 
 # 2. Run a playbook so the callback emits telemetry.
 #    Molecule sets OTEL_EXPORTER_OTLP_ENDPOINT for you (see molecule/default/molecule.yml):
 uv run molecule converge
 #    ...or run directly against an inventory, exporting yourself:
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 \
+OTEL_EXPORTER_OTLP_ENDPOINT=http://host.containers.internal:4317 \
   uv run ansible-playbook -i inventories/staging/hosts.yml playbooks/site.yml
 
-# 3. Inspect the traces
+# 3. Inspect the traces (Jaeger UI is published on the host)
 open http://localhost:16686            # service "ansible" / "ansible-molecule"
 
 # 4. Tear down
-docker compose -f observability/compose.yaml down
+podman compose -f observability/compose.yaml down
 ```
 
-> The callback runs on the **control node** (where ansible executes), not on the targets —
-> so `localhost:4317` is the Jaeger container's host-mapped port, reachable regardless of
-> how the targets are spun up.
+> The callback runs on the **control node** (where ansible executes), not on the targets.
+> Because Jaeger runs as a sibling on the host engine, the devcontainer reaches its OTLP
+> port via `host.containers.internal:4317`, while you open the UI at `localhost:16686`
+> directly on the host.

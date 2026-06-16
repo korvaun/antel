@@ -1,0 +1,13 @@
+# Auto-provisioned Jaeger datasource — Grafana picks this up at startup.
+# Jaeger all-in-one exposes its query API on the same port as the UI (16686);
+# inside the compose network the container is reachable by its service name.
+apiVersion: 1
+
+datasources:
+  - name: Jaeger
+    type: jaeger
+    uid: jaeger
+    access: proxy
+    url: http://jaeger:16686
+    isDefault: true
+    editable: true
