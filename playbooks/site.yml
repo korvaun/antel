@@ -1,0 +1,5 @@
+---
+- name: Converge all hosts
+  hosts: all
+  become: true
+  roles: []

@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv run:*)",
+      "Bash(uv sync:*)",
+      "Bash(uv add:*)",
+      "Bash(uv run ansible-lint:*)",
+      "Bash(uv run yamllint:*)",
+      "Bash(uv run ansible-playbook --check:*)",
+      "Bash(uv run ansible-playbook --syntax-check:*)",
+      "Bash(uv run molecule:*)",
+      "Bash(uv run ruff:*)",
+      "Bash(uv run mypy:*)",
+      "Bash(uv run pytest:*)"
+    ]
+  }
+}

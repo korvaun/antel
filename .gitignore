@@ -1,0 +1,26 @@
+# Python / uv
+.venv/
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Ansible
+*.retry
+collections/ansible_collections/
+.ansible/
+fact_cache/
+
+# Secrets / Vault — never commit
+*.vault
+vault_pass*
+.vault_pass*
+.env
+.env.*
+
+# Claude Code
+.claude/settings.local.json
+
+# Workshop / LXD
+.workshop/

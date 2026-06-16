@@ -1,0 +1,24 @@
+# Canonical Workshop — sandboxed dev environment.
+# Docs: https://canonical.com/blog/introducing-workshop-sandboxed-development-environments
+# Requires LXD 6.8+ on the host.
+#
+# NOTE: the Workshop schema is still evolving — verify these keys against the
+# current docs before relying on this file. The intent is captured in comments.
+name: antel
+
+# Language SDKs provisioned in the sandbox.
+sdks:
+  - python: "3.14"
+
+# Host resources granted to the sandbox. LXD lets us spin up ephemeral
+# instances and run playbooks against them as real test targets.
+resources:
+  lxd: true
+
+# Base packages installed in the sandbox image.
+packages:
+  - uv
+
+# Run once on environment creation: install the pinned toolchain from uv.lock.
+setup:
+  - uv sync

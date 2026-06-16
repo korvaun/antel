@@ -1,0 +1,11 @@
+---
+profile: production
+
+exclude_paths:
+  - .cache/
+  - .github/
+  - collections/
+  - .venv/
+
+# Keep empty: prefer fixing findings over silencing the production profile.
+skip_list: []

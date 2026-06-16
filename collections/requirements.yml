@@ -1,0 +1,7 @@
+---
+# Install with: uv run ansible-galaxy collection install -r collections/requirements.yml
+collections:
+  - name: ansible.posix
+  - name: community.general
+
+roles: []

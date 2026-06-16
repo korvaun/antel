@@ -1,0 +1,37 @@
+[project]
+name = "antel"
+version = "0.1.0"
+description = "SRE Ansible automation for antel"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+# uv-managed dev toolchain. Pinned in uv.lock for reproducible Workshop envs.
+[dependency-groups]
+dev = [
+    "ansible>=10",
+    "ansible-lint>=24",
+    "yamllint>=1.35",
+    "molecule>=24",
+    "molecule-plugins[lxd]>=23",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "pytest>=8",
+]
+
+# This is an automation repo, not an installable package: skip the build step.
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
