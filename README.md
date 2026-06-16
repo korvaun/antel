@@ -58,6 +58,19 @@ uv run pytest
 
 ## Dev environment
 
-This repo ships a `workshop.yaml` for [Canonical Workshop](https://canonical.com/blog/introducing-workshop-sandboxed-development-environments)
-(requires LXD 6.8+). The sandbox grants LXD so playbooks can run against ephemeral
-instances as real test targets, while keeping host credentials isolated.
+This repo ships a `workshop.yaml` for [Canonical Workshop](https://ubuntu.com/workshop/docs).
+The sandbox (base `ubuntu@26.04`) provisions the toolchain and exposes named
+actions you can run with `workshop run <action>`:
+
+```bash
+workshop run setup     # bootstrap uv, sync deps, install collections
+workshop run lint      # yamllint + ansible-lint + ruff + mypy
+workshop run check     # ansible-playbook --check --diff (arg: env, default staging)
+workshop run test      # molecule test + pytest
+```
+
+> LXD-backed test targets are not yet wired — Workshop exposes resources via
+> typed interfaces (`mount`, `tunnel`, `custom-device`, …), not a plain `lxd: true`.
+> See the `TODO` in `workshop.yaml`. The official
+> [`use-workshop` skill](https://github.com/canonical/use-workshop-skill) (copy into
+> `.claude/skills/use-workshop/`) can drive the Workshop CLI and wire interfaces.

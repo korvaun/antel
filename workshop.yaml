@@ -1,24 +1,35 @@
 # Canonical Workshop — sandboxed dev environment.
-# Docs: https://canonical.com/blog/introducing-workshop-sandboxed-development-environments
-# Requires LXD 6.8+ on the host.
-#
-# NOTE: the Workshop schema is still evolving — verify these keys against the
-# current docs before relying on this file. The intent is captured in comments.
+# Schema: https://ubuntu.com/workshop/docs/reference/definition-files/workshop-definition
+# Tip: append `.md` to any Workshop doc URL to read it as Markdown.
 name: antel
+base: ubuntu@26.04
 
-# Language SDKs provisioned in the sandbox.
+# SDKs are snap-based dev kits installed into the workshop.
+# NOTE: verify the exact SDK `name`/`channel` against the catalog/docs above —
+# the schema is confirmed, the specific Python SDK identifier is not.
 sdks:
-  - python: "3.14"
+  - name: python
 
-# Host resources granted to the sandbox. LXD lets us spin up ephemeral
-# instances and run playbooks against them as real test targets.
-resources:
-  lxd: true
+# Named scripts, run with `workshop run <action>`. errexit + pipefail are enabled;
+# arguments are available as bash positional params ($1, $@).
+actions:
+  setup: |
+    command -v uv >/dev/null 2>&1 || pip install --user uv
+    uv sync
+    uv run ansible-galaxy collection install -r collections/requirements.yml
+  lint: |
+    uv run yamllint .
+    uv run ansible-lint
+    uv run ruff check .
+    uv run mypy .
+  check: |
+    uv run ansible-playbook -i "inventories/${1:-staging}/hosts.yml" \
+      playbooks/site.yml --check --diff
+  test: |
+    uv run molecule test
+    uv run pytest
 
-# Base packages installed in the sandbox image.
-packages:
-  - uv
-
-# Run once on environment creation: install the pinned toolchain from uv.lock.
-setup:
-  - uv sync
+# TODO: wire LXD test targets. The confirmed interface types are camera,
+# custom-device, desktop, GPU, mount, ssh-agent, and tunnel — there is no plain
+# `lxd: true`. Confirm the right plugs/slots (and `connections`) via the
+# use-workshop skill or the how-to docs before relying on LXD-backed test hosts.
