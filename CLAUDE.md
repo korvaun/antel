@@ -1,8 +1,13 @@
 # antel — project guide
 
 SRE Ansible automation repo. Ansible (project/playbook layout) + Python (custom modules,
-filter plugins, helper scripts). Toolchain pinned via **uv**; dev/test in a **Canonical
-Workshop** sandbox (LXD test targets) on Ubuntu 26.04 LTS.
+filter plugins, helper scripts). Toolchain pinned via **uv** on Ubuntu 26.04 LTS.
+
+**Project goal:** explore the output of Ansible's OpenTelemetry callback
+(`community.general.opentelemetry`, enabled in `ansible.cfg`). Playbooks run against
+throwaway **podman** targets (Molecule); emitted traces are viewed in **Jaeger**
+(`observability/compose.yaml`). Canonical Workshop/LXD was evaluated and dropped —
+over-engineered for this goal (no LXD-target interface; nesting friction).
 
 ## Structure
 
@@ -13,7 +18,12 @@ Workshop** sandbox (LXD test targets) on Ubuntu 26.04 LTS.
 - `roles/` — one role per service/concern (`tasks/`, `handlers/`, `defaults/`, `vars/`,
   `templates/`, `meta/`).
 - `library/`, `filter_plugins/` — custom Python for Ansible (auto-discovered via `ansible.cfg`).
+- `molecule/default/` — Molecule scenario; podman driver, throwaway target containers.
+- `observability/` — `compose.yaml` for the Jaeger all-in-one OTLP viewer.
 - `tests/` — pytest for Python helpers.
+
+The OTel callback runs on the **control node** (where ansible executes), exporting to
+`OTEL_EXPORTER_OTLP_ENDPOINT` (default `http://localhost:4317`, the Jaeger container).
 
 ## Commands
 
@@ -24,8 +34,10 @@ uv sync                                                   # install pinned toolc
 uv run yamllint . && uv run ansible-lint                  # lint YAML + Ansible
 uv run ruff check . && uv run ruff format && uv run mypy . # lint/format/type-check Python
 uv run ansible-playbook -i inventories/<env>/hosts.yml playbooks/site.yml --check --diff
-uv run molecule test                                      # test roles on ephemeral hosts
+uv run molecule test                                      # podman targets: create→converge→verify→destroy
+uv run molecule converge                                  # apply playbook, keep containers, emit OTel
 uv run pytest                                             # Python helper tests
+podman compose -f observability/compose.yaml up -d        # Jaeger viewer (UI :16686, OTLP :4317)
 ```
 
 ## Standards & conventions

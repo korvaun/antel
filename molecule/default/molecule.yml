@@ -1,0 +1,27 @@
+---
+# Molecule scenario: throwaway podman containers as playbook targets.
+# The OpenTelemetry callback runs on the *control node* (where molecule runs ansible),
+# exporting to the Jaeger container's OTLP endpoint on the host — see observability/compose.yaml.
+driver:
+  name: podman
+
+platforms:
+  # geerlingguy images are systemd-enabled and ansible-ready (the de-facto molecule targets).
+  - name: antel-web
+    image: docker.io/geerlingguy/docker-ubuntu2404-ansible:latest
+    pre_build_image: true
+  - name: antel-db
+    image: docker.io/geerlingguy/docker-ubuntu2404-ansible:latest
+    pre_build_image: true
+
+provisioner:
+  name: ansible
+  env:
+    ANSIBLE_CALLBACKS_ENABLED: community.general.opentelemetry
+    OTEL_EXPORTER_OTLP_ENDPOINT: http://localhost:4317
+    OTEL_SERVICE_NAME: ansible-molecule
+  playbooks:
+    converge: converge.yml
+
+verifier:
+  name: ansible

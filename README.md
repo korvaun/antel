@@ -1,14 +1,17 @@
 # antel
 
-SRE Ansible automation for **antel**.
+SRE Ansible automation for **antel**. Primary goal: explore the output of Ansible's
+**OpenTelemetry callback** (`community.general.opentelemetry`) — run playbooks against
+throwaway podman targets and view the emitted traces in Jaeger.
 
 ## Layout
 
 ```
 antel/
-├── ansible.cfg                 # roles/collections/plugin paths; no global inventory (pass -i)
-├── pyproject.toml              # uv-managed toolchain (ansible, linters, molecule, ...)
-├── workshop.yaml               # Canonical Workshop sandbox (LXD test targets)
+├── ansible.cfg                 # plugin paths + opentelemetry callback enabled; no global inventory (pass -i)
+├── pyproject.toml              # uv-managed toolchain (ansible, linters, molecule[podman], otel libs)
+├── observability/compose.yaml  # Jaeger all-in-one (OTLP receiver + UI) for viewing traces
+├── molecule/default/           # throwaway podman targets to run playbooks against
 ├── collections/requirements.yml
 ├── inventories/
 │   ├── production/{hosts.yml,group_vars/,host_vars/}
@@ -25,8 +28,8 @@ variables never leak across environments.
 
 ## Toolchain
 
-The toolchain is pinned via [uv](https://docs.astral.sh/uv/). Inside the Workshop sandbox
-(or any host with `uv`):
+The toolchain is pinned via [uv](https://docs.astral.sh/uv/). On any host with `uv`
+(and `podman` for the targets/observability stack):
 
 ```bash
 uv sync                                          # install pinned tools from uv.lock
@@ -49,28 +52,38 @@ uv run ansible-playbook -i inventories/staging/hosts.yml playbooks/site.yml --ch
 # Run for real
 uv run ansible-playbook -i inventories/staging/hosts.yml playbooks/site.yml
 
-# Test roles against ephemeral hosts (LXD driver)
-uv run molecule test
+# Test roles against throwaway podman containers
+uv run molecule test          # full create → converge → verify → destroy
+uv run molecule converge      # just apply the playbook (keeps containers)
 
 # Python helpers
 uv run pytest
 ```
 
-## Dev environment
+## Exploring the OpenTelemetry callback
 
-This repo ships a `workshop.yaml` for [Canonical Workshop](https://ubuntu.com/workshop/docs).
-The sandbox (base `ubuntu@26.04`) provisions the toolchain and exposes named
-actions you can run with `workshop run <action>`:
+The whole point of this repo. The `community.general.opentelemetry` callback (enabled in
+`ansible.cfg`) emits **one trace per playbook run, one span per task** to the OTLP endpoint
+in `OTEL_EXPORTER_OTLP_ENDPOINT`. Jaeger all-in-one receives and renders them.
 
 ```bash
-workshop run setup     # bootstrap uv, sync deps, install collections
-workshop run lint      # yamllint + ansible-lint + ruff + mypy
-workshop run check     # ansible-playbook --check --diff (arg: env, default staging)
-workshop run test      # molecule test + pytest
+# 1. Start the viewer (OTLP in on :4317, UI on :16686)
+podman compose -f observability/compose.yaml up -d
+
+# 2. Run a playbook so the callback emits telemetry.
+#    Molecule sets OTEL_EXPORTER_OTLP_ENDPOINT for you (see molecule/default/molecule.yml):
+uv run molecule converge
+#    ...or run directly against an inventory, exporting yourself:
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 \
+  uv run ansible-playbook -i inventories/staging/hosts.yml playbooks/site.yml
+
+# 3. Inspect the traces
+open http://localhost:16686            # service "ansible" / "ansible-molecule"
+
+# 4. Tear down
+podman compose -f observability/compose.yaml down
 ```
 
-> LXD-backed test targets are not yet wired — Workshop exposes resources via
-> typed interfaces (`mount`, `tunnel`, `custom-device`, …), not a plain `lxd: true`.
-> See the `TODO` in `workshop.yaml`. The official
-> [`use-workshop` skill](https://github.com/canonical/use-workshop-skill) (copy into
-> `.claude/skills/use-workshop/`) can drive the Workshop CLI and wire interfaces.
+> The callback runs on the **control node** (where ansible executes), not on the targets —
+> so `localhost:4317` is the Jaeger container's host-mapped port, reachable regardless of
+> how the targets are spun up.

@@ -22,5 +22,5 @@ vault_pass*
 # Claude Code
 .claude/settings.local.json
 
-# Workshop / LXD
-.workshop/
+# Molecule
+.molecule/

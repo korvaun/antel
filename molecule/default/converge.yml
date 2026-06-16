@@ -1,0 +1,4 @@
+---
+# Run the real site playbook so the emitted telemetry reflects production plays.
+- name: Converge
+  ansible.builtin.import_playbook: ../../playbooks/site.yml

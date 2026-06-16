@@ -1,0 +1,19 @@
+# Local observability stack for exploring the Ansible OpenTelemetry callback output.
+#   podman compose -f observability/compose.yaml up -d
+#   open http://localhost:16686   (Jaeger UI)
+#   ...run a playbook (callback exports to localhost:4317)...
+#   podman compose -f observability/compose.yaml down
+#
+# Jaeger all-in-one bundles an OTLP receiver + storage + UI in one container,
+# so no separate OpenTelemetry Collector is needed for this exploration.
+services:
+  jaeger:
+    # Pin to a specific tag for reproducibility, e.g. jaegertracing/all-in-one:1.62.0
+    image: docker.io/jaegertracing/all-in-one:latest
+    container_name: antel-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"   # web UI
+      - "4317:4317"     # OTLP gRPC  (ansible OTel callback target)
+      - "4318:4318"     # OTLP HTTP
