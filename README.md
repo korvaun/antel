@@ -2,16 +2,21 @@
 
 SRE Ansible automation for **antel**. Primary goal: explore the output of Ansible's
 **OpenTelemetry callback** (`community.general.opentelemetry`) — run playbooks against
-throwaway podman targets and view the emitted traces in Jaeger.
+throwaway containers and view the emitted traces in Jaeger.
+
+Work inside the **devcontainer** (`.devcontainer/`): the only thing on your host is a
+container engine (Podman); `uv`, Ansible, Molecule, the targets, and Jaeger all live
+inside. Open the repo in VS Code "Reopen in Container", or `devcontainer up --workspace-folder .`.
 
 ## Layout
 
 ```
 antel/
+├── .devcontainer/devcontainer.json  # isolated dev env (python + docker-in-docker + uv)
 ├── ansible.cfg                 # plugin paths + opentelemetry callback enabled; no global inventory (pass -i)
-├── pyproject.toml              # uv-managed toolchain (ansible, linters, molecule[podman], otel libs)
+├── pyproject.toml              # uv-managed toolchain (ansible, linters, molecule[docker], otel libs)
 ├── observability/compose.yaml  # Jaeger all-in-one (OTLP receiver + UI) for viewing traces
-├── molecule/default/           # throwaway podman targets to run playbooks against
+├── molecule/default/           # throwaway docker targets to run playbooks against
 ├── collections/requirements.yml
 ├── inventories/
 │   ├── production/{hosts.yml,group_vars/,host_vars/}
@@ -28,8 +33,8 @@ variables never leak across environments.
 
 ## Toolchain
 
-The toolchain is pinned via [uv](https://docs.astral.sh/uv/). On any host with `uv`
-(and `podman` for the targets/observability stack):
+The toolchain is pinned via [uv](https://docs.astral.sh/uv/). The devcontainer's
+`postCreateCommand` runs this for you on first build; to redo it manually:
 
 ```bash
 uv sync                                          # install pinned tools from uv.lock
@@ -52,7 +57,7 @@ uv run ansible-playbook -i inventories/staging/hosts.yml playbooks/site.yml --ch
 # Run for real
 uv run ansible-playbook -i inventories/staging/hosts.yml playbooks/site.yml
 
-# Test roles against throwaway podman containers
+# Test roles against throwaway docker containers (via docker-in-docker)
 uv run molecule test          # full create → converge → verify → destroy
 uv run molecule converge      # just apply the playbook (keeps containers)
 
@@ -68,7 +73,7 @@ in `OTEL_EXPORTER_OTLP_ENDPOINT`. Jaeger all-in-one receives and renders them.
 
 ```bash
 # 1. Start the viewer (OTLP in on :4317, UI on :16686)
-podman compose -f observability/compose.yaml up -d
+docker compose -f observability/compose.yaml up -d
 
 # 2. Run a playbook so the callback emits telemetry.
 #    Molecule sets OTEL_EXPORTER_OTLP_ENDPOINT for you (see molecule/default/molecule.yml):
@@ -81,7 +86,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 \
 open http://localhost:16686            # service "ansible" / "ansible-molecule"
 
 # 4. Tear down
-podman compose -f observability/compose.yaml down
+docker compose -f observability/compose.yaml down
 ```
 
 > The callback runs on the **control node** (where ansible executes), not on the targets —
