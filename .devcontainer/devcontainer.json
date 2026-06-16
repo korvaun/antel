@@ -6,8 +6,20 @@
   // spin throwaway target containers and run the Jaeger viewer. Requires a privileged
   // container (the feature configures it; some Podman hosts also need runArgs below).
   "features": {
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    // Installs the Claude Code CLI inside the container.
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
   },
+
+  // Reuse the host's Claude Code login: bind-mount the ~/.claude *directory*
+  // (credentials live in ~/.claude/.credentials.json). Mounting the directory — not
+  // the single ~/.claude.json file — avoids atomic-write/rename failures.
+  // The container then shares your real credentials and refreshes tokens back to the host.
+  // Cleaner-but-requires-one-login alternative:
+  //   "source=claude-code-config,target=/home/vscode/.claude,type=volume"
+  "mounts": [
+    "source=${localEnv:HOME}/.claude,target=/home/vscode/.claude,type=bind,consistency=cached"
+  ],
 
   // Uncomment if nested docker fails to start under your Podman host:
   // "runArgs": ["--privileged"],
