@@ -1,6 +1,7 @@
 # Local observability stack for exploring the Ansible OpenTelemetry callback output.
 #   podman compose -f observability/compose.yaml up -d
 #   open http://localhost:16686   (Jaeger UI, on the host)
+#   open http://localhost:3000    (Grafana — Jaeger datasource pre-provisioned)
 #   ...run a playbook (callback exports to host.containers.internal:4317)...
 #   podman compose -f observability/compose.yaml down
 # Inside the devcontainer, podman talks to the host engine, so Jaeger runs as a
@@ -8,6 +9,9 @@
 #
 # Jaeger all-in-one bundles an OTLP receiver + storage + UI in one container,
 # so no separate OpenTelemetry Collector is needed for this exploration.
+# Grafana is added purely as an alternative viewer: it queries the same Jaeger
+# backend via its built-in Jaeger datasource (see grafana/provisioning/). This
+# mirrors a "single pane of glass" setup without changing the trace backend.
 services:
   jaeger:
     # Pin to a specific tag for reproducibility, e.g. jaegertracing/all-in-one:1.62.0
@@ -19,3 +23,19 @@ services:
       - "16686:16686"   # web UI
       - "4317:4317"     # OTLP gRPC  (ansible OTel callback target)
       - "4318:4318"     # OTLP HTTP
+
+  grafana:
+    # Pin to a specific tag for reproducibility, e.g. grafana/grafana:11.6.0
+    image: docker.io/grafana/grafana:latest
+    container_name: antel-grafana
+    environment:
+      # Local sandbox: skip the login wall, land straight on an admin session.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    ports:
+      - "3000:3000"     # web UI
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - jaeger
