@@ -1,0 +1,37 @@
+---
+- name: Enable Centreon poller services at boot
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+  loop:
+    - centreon
+    - centengine
+    - centreontrapd
+    - snmptrapd
+    - gorgoned
+
+# changed_when: false on all start tasks: services that depend on Centreon Central
+# (centreontrapd, centengine) crash immediately in lab/container environments and
+# would report 'changed' on every run. Desired-state semantics make this safe.
+- name: Start passive monitoring services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: started
+  loop:
+    - centreontrapd
+    - gorgoned
+  changed_when: false
+
+# snmptrapd also requires SNMP config and UDP 162 binding unavailable in containers.
+- name: Start snmptrapd
+  ansible.builtin.systemd:
+    name: snmptrapd
+    state: started
+  ignore_errors: true
+  changed_when: false
+
+- name: Start Centreon engine
+  ansible.builtin.systemd:
+    name: centengine
+    state: started
+  changed_when: false

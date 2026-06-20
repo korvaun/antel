@@ -1,0 +1,5 @@
+---
+- ansible.builtin.include_tasks: prerequisites.yml
+- ansible.builtin.include_tasks: repository.yml
+- ansible.builtin.include_tasks: install.yml
+- ansible.builtin.include_tasks: services.yml

@@ -1,0 +1,29 @@
+---
+- name: Download Centreon GPG key
+  ansible.builtin.get_url:
+    url: "{{ centreon_gpg_key_url }}"
+    dest: /tmp/centreon.gpg.raw
+    mode: "0644"
+
+# gpg --dearmor converts the ASCII-armored key to binary format required by apt.
+# 'creates' makes this task idempotent: skipped if the key file already exists.
+- name: Dearmor Centreon GPG key
+  ansible.builtin.command:
+    cmd: "gpg --dearmor -o {{ centreon_gpg_key_dest }} /tmp/centreon.gpg.raw"
+    creates: "{{ centreon_gpg_key_dest }}"
+
+- name: Add Centreon standard apt repository
+  ansible.builtin.copy:
+    content: "deb {{ centreon_apt_repo_url }} {{ ansible_facts['distribution_release'] }} main\n"
+    dest: /etc/apt/sources.list.d/centreon.list
+    mode: "0644"
+
+- name: Add Centreon plugins apt repository
+  ansible.builtin.copy:
+    content: "deb {{ centreon_plugins_apt_repo_url }} {{ ansible_facts['distribution_release'] }} main\n"
+    dest: /etc/apt/sources.list.d/centreon-plugins.list
+    mode: "0644"
+
+- name: Update apt cache after adding Centreon repositories
+  ansible.builtin.apt:
+    update_cache: true

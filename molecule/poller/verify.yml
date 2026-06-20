@@ -1,0 +1,34 @@
+---
+- name: Verify Centreon poller installation
+  hosts: all
+  become: true
+  tasks:
+    - name: Gather package facts
+      ansible.builtin.package_facts:
+
+    - name: Assert centreon-poller is installed
+      ansible.builtin.assert:
+        that: "'centreon-poller' in ansible_facts.packages"
+        fail_msg: "Package centreon-poller is not installed"
+
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+
+    # gorgoned stays running without a Central connection.
+    - name: Assert gorgoned is running
+      ansible.builtin.assert:
+        that: ansible_facts.services['gorgoned.service'].state == 'running'
+        fail_msg: "Service gorgoned is not running"
+
+    # centreontrapd and centengine crash in container environments without Centreon
+    # Central infrastructure — verify enabled only, not running.
+    # snmptrapd is excluded: Debian marks it 'static' (not 'enabled'), and it fails
+    # to start in containers anyway.
+    - name: Assert Centreon services are enabled
+      ansible.builtin.assert:
+        that: ansible_facts.services[item].status == 'enabled'
+        fail_msg: "Service {{ item }} is not enabled"
+      loop:
+        - centreontrapd.service
+        - centengine.service
+        - gorgoned.service

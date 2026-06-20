@@ -1,0 +1,33 @@
+---
+# Molecule scenario: Centreon 24.10 poller on Debian 12.
+# The container is placed in the "poller" group so playbooks/site.yml
+# applies the centreon_poller role via the correct play.
+# Inside the devcontainer, podman talks to the host engine (CONTAINER_HOST),
+# so this container runs as a sibling on the host.
+driver:
+  name: podman
+
+platforms:
+  - name: antel-poller
+    image: docker.io/geerlingguy/docker-debian12-ansible:latest
+    pre_build_image: true
+    privileged: true
+    command: /usr/lib/systemd/systemd
+    groups:
+      - poller
+
+provisioner:
+  name: ansible
+  env:
+    # ANSIBLE_ROLES_PATH must be explicit: Molecule invokes ansible-playbook from a
+    # temp directory, so ansible.cfg's relative 'roles_path = roles' doesn't resolve.
+    ANSIBLE_ROLES_PATH: "${MOLECULE_PROJECT_DIRECTORY}/roles"
+    ANSIBLE_CONFIG: "${MOLECULE_PROJECT_DIRECTORY}/ansible.cfg"
+    ANSIBLE_CALLBACKS_ENABLED: community.general.opentelemetry
+    OTEL_EXPORTER_OTLP_ENDPOINT: http://host.containers.internal:4317
+    OTEL_SERVICE_NAME: ansible-molecule
+  playbooks:
+    converge: converge.yml
+
+verifier:
+  name: ansible

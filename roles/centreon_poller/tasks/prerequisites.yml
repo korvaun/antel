@@ -1,0 +1,17 @@
+---
+- name: Update apt cache and upgrade packages
+  ansible.builtin.apt:
+    update_cache: true
+    upgrade: dist
+
+- name: Install prerequisite packages
+  ansible.builtin.apt:
+    name:
+      - lsb-release
+      - ca-certificates
+      - apt-transport-https
+      - software-properties-common
+      - wget
+      - gnupg2
+      - curl
+    state: present

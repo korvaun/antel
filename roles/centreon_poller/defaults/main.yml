@@ -1,0 +1,6 @@
+---
+centreon_version: "24.10"
+centreon_apt_repo_url: "https://packages.centreon.com/apt-standard-24.10-stable/"
+centreon_plugins_apt_repo_url: "https://packages.centreon.com/apt-plugins-stable/"
+centreon_gpg_key_url: "https://apt-key.centreon.com"
+centreon_gpg_key_dest: "/etc/apt/trusted.gpg.d/centreon.gpg"

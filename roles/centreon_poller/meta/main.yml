@@ -1,0 +1,11 @@
+---
+galaxy_info:
+  role_name: centreon_poller
+  description: Install and configure a Centreon 24.10 poller on Debian 12
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - "12"
+
+dependencies: []

@@ -1,0 +1,10 @@
+---
+- name: Install Centreon poller package
+  ansible.builtin.apt:
+    name: centreon-poller
+    state: present
+    install_recommends: false
+
+- name: Reload systemd daemon to pick up installed unit files
+  ansible.builtin.systemd:
+    daemon_reload: true
