@@ -34,7 +34,8 @@
 
   // Install the podman client (used as a remote client against the host socket) + uv,
   // then sync the pinned toolchain and Ansible collections.
-  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y podman && curl -LsSf https://astral.sh/uv/install.sh | sh && uv sync && uv run ansible-galaxy collection install -r collections/requirements.yml",
+  // Remove stale Yarn repo (GPG key expired in the base image) before apt update.
+  "postCreateCommand": "sudo rm -f /etc/apt/sources.list.d/yarn.list /usr/share/keyrings/yarnkey.gpg && sudo apt-get update && sudo apt-get install -y podman && curl -LsSf https://astral.sh/uv/install.sh | sh && uv sync && uv run ansible-galaxy collection install -r collections/requirements.yml",
 
   "remoteUser": "vscode"
 }

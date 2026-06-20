@@ -1,28 +1,51 @@
 # Local observability stack for exploring the Ansible OpenTelemetry callback output.
 #   podman compose -f observability/compose.yaml up -d
-#   open http://localhost:16686   (Jaeger UI, on the host)
-#   open http://localhost:3000    (Grafana — Jaeger datasource pre-provisioned)
+#   open http://localhost:3000    (Grafana — Tempo datasource pre-provisioned)
+#   open http://localhost:3200    (Tempo HTTP API, optional direct access)
 #   ...run a playbook (callback exports to host.containers.internal:4317)...
 #   podman compose -f observability/compose.yaml down
-# Inside the devcontainer, podman talks to the host engine, so Jaeger runs as a
-# sibling on the host and its ports are published on the host.
 #
-# Jaeger all-in-one bundles an OTLP receiver + storage + UI in one container,
-# so no separate OpenTelemetry Collector is needed for this exploration.
-# Grafana is added purely as an alternative viewer: it queries the same Jaeger
-# backend via its built-in Jaeger datasource (see grafana/provisioning/). This
-# mirrors a "single pane of glass" setup without changing the trace backend.
+# Flow: Ansible callback → OTel Collector:4317 → Tempo → Grafana
+# The Collector is the single OTLP ingestion point; adding new exporters
+# (Mimir, OpenSearch, ...) later is a config-only change in otelcol/config.yaml.
 services:
-  jaeger:
-    # Pin to a specific tag for reproducibility, e.g. jaegertracing/all-in-one:1.62.0
-    image: docker.io/jaegertracing/all-in-one:latest
-    container_name: antel-jaeger
-    environment:
-      COLLECTOR_OTLP_ENABLED: "true"
+  otelcol:
+    # Pin to a specific tag for reproducibility, e.g. otel/opentelemetry-collector-contrib:0.123.0
+    image: docker.io/otel/opentelemetry-collector-contrib:latest
+    container_name: antel-otelcol
+    volumes:
+      - ./otelcol/config.yaml:/etc/otelcol-contrib/config.yaml:ro
     ports:
-      - "16686:16686"   # web UI
       - "4317:4317"     # OTLP gRPC  (ansible OTel callback target)
       - "4318:4318"     # OTLP HTTP
+    depends_on:
+      - tempo
+
+  prometheus:
+    image: docker.io/prom/prometheus:latest
+    container_name: antel-prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      # Accept remote_write from Tempo's metrics_generator
+      - "--web.enable-remote-write-receiver"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+
+  tempo:
+    # Pin to a specific tag for reproducibility, e.g. grafana/tempo:2.7.2
+    image: docker.io/grafana/tempo:latest
+    container_name: antel-tempo
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./tempo/tempo.yaml:/etc/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    ports:
+      - "3200:3200"     # HTTP query API (Grafana datasource + direct access)
+    depends_on:
+      - prometheus
 
   grafana:
     # Pin to a specific tag for reproducibility, e.g. grafana/grafana:11.6.0
@@ -38,4 +61,8 @@ services:
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
-      - jaeger
+      - tempo
+
+volumes:
+  tempo-data:
+  prometheus-data:

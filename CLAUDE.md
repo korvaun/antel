@@ -5,14 +5,15 @@ filter plugins, helper scripts). Toolchain pinned via **uv** on Ubuntu 26.04 LTS
 
 **Dev env:** work inside the **devcontainer** (`.devcontainer/`). Host needs only **Podman**;
 `uv`, Ansible, Molecule, and Claude Code run inside. The devcontainer talks to the host's
-rootless Podman via the mounted socket (`CONTAINER_HOST`), so Molecule targets and Jaeger
-run as ephemeral **sibling** containers on the host (podman-outside-of-podman). See
+rootless Podman via the mounted socket (`CONTAINER_HOST`), so Molecule targets and the
+observability stack run as ephemeral **sibling** containers on the host (podman-outside-of-podman). See
 `.devcontainer/README.md` for host prerequisites + VS Code settings.
 
 **Project goal:** explore the output of Ansible's OpenTelemetry callback
 (`community.general.opentelemetry`, enabled in `ansible.cfg`). Playbooks run against
-throwaway **podman** targets (Molecule); emitted traces are viewed in **Jaeger**
-(`observability/compose.yaml`), reached from the devcontainer via `host.containers.internal:4317`.
+throwaway **podman** targets (Molecule); emitted traces flow through an **OTel Collector**
+into **Tempo**, visualised in **Grafana** (`observability/compose.yaml`), reached from the
+devcontainer via `host.containers.internal:4317`.
 Canonical Workshop/LXD was evaluated and dropped — over-engineered for this goal (no
 LXD-target interface; nesting friction).
 
@@ -26,11 +27,11 @@ LXD-target interface; nesting friction).
   `templates/`, `meta/`).
 - `library/`, `filter_plugins/` — custom Python for Ansible (auto-discovered via `ansible.cfg`).
 - `molecule/default/` — Molecule scenario; podman driver, throwaway target containers.
-- `observability/` — `compose.yaml` for the Jaeger all-in-one OTLP viewer.
+- `observability/` — `compose.yaml` for the local OTel stack (Collector → Tempo → Grafana); configs under `otelcol/`, `tempo/`, `grafana/`.
 - `tests/` — pytest for Python helpers.
 
 The OTel callback runs on the **control node** (where ansible executes), exporting to
-`OTEL_EXPORTER_OTLP_ENDPOINT` (default `http://localhost:4317`, the Jaeger container).
+`OTEL_EXPORTER_OTLP_ENDPOINT` (default `http://localhost:4317`, the OTel Collector).
 
 ## Commands
 
@@ -44,7 +45,15 @@ uv run ansible-playbook -i inventories/<env>/hosts.yml playbooks/site.yml --chec
 uv run molecule test                                      # podman targets: create→converge→verify→destroy
 uv run molecule converge                                  # apply playbook, keep containers, emit OTel
 uv run pytest                                             # Python helper tests
-podman compose -f observability/compose.yaml up -d        # Jaeger viewer (UI :16686, OTLP :4317)
+```
+
+The observability stack must be started from the **host** (not the devcontainer) — bind mounts in
+`compose.yaml` use paths that the host Podman daemon resolves; `/workspaces/` doesn't exist on the host.
+
+```bash
+# On the HOST (outside devcontainer):
+podman compose -f observability/compose.yaml up -d        # OTel stack (Grafana :3000, Tempo :3200, OTLP :4317)
+podman compose -f observability/compose.yaml down
 ```
 
 ## Standards & conventions

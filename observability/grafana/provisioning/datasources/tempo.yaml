@@ -1,0 +1,24 @@
+# Auto-provisioned datasources — Grafana picks these up at startup.
+apiVersion: 1
+
+datasources:
+  - name: Tempo
+    type: tempo
+    uid: tempo
+    access: proxy
+    url: http://tempo:3200
+    isDefault: true
+    editable: true
+    jsonData:
+      # Link to Prometheus so Grafana can render the Service Graph
+      serviceMap:
+        datasourceUid: prometheus
+      nodeGraph:
+        enabled: true
+
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    editable: true
