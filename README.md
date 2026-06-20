@@ -2,12 +2,12 @@
 
 SRE Ansible automation for **antel**. Primary goal: explore the output of Ansible's
 **OpenTelemetry callback** (`community.general.opentelemetry`) — run playbooks against
-throwaway containers and view the emitted traces in Jaeger.
+throwaway containers and view the emitted traces in Grafana/Tempo.
 
 Work inside the **devcontainer** (`.devcontainer/`): the only thing installed on your host
 is **Podman**; `uv`, Ansible, Molecule, and the Claude Code CLI run inside. Molecule targets
-and the Jaeger viewer run as ephemeral sibling containers on the host's rootless Podman (the
-devcontainer talks to it via the mounted socket). See [`.devcontainer/README.md`](.devcontainer/README.md)
+and the observability stack run as ephemeral sibling containers on the host's rootless Podman
+(the devcontainer talks to it via the mounted socket). See [`.devcontainer/README.md`](.devcontainer/README.md)
 for host prerequisites and VS Code settings. Open the repo with "Reopen in Container", or
 `devcontainer up --workspace-folder .`.
 
@@ -18,7 +18,7 @@ antel/
 ├── .devcontainer/              # isolated dev env (python + uv + claude-code; host Podman socket)
 ├── ansible.cfg                 # plugin paths + opentelemetry callback enabled; no global inventory (pass -i)
 ├── pyproject.toml              # uv-managed toolchain (ansible, linters, molecule[podman], otel libs)
-├── observability/compose.yaml  # Jaeger all-in-one (OTLP receiver + UI) for viewing traces
+├── observability/compose.yaml  # OTel stack (Collector → Tempo → Grafana) for viewing traces
 ├── molecule/default/           # throwaway podman targets to run playbooks against
 ├── collections/requirements.yml
 ├── inventories/
@@ -73,27 +73,28 @@ uv run pytest
 
 The whole point of this repo. The `community.general.opentelemetry` callback (enabled in
 `ansible.cfg`) emits **one trace per playbook run, one span per task** to the OTLP endpoint
-in `OTEL_EXPORTER_OTLP_ENDPOINT`. Jaeger all-in-one receives and renders them.
+in `OTEL_EXPORTER_OTLP_ENDPOINT`. The OTel Collector forwards traces to Tempo; Grafana
+visualises them.
 
 ```bash
-# 1. Start the viewer (runs on the host engine; OTLP in on :4317, UI on :16686)
+# 1. Start the observability stack on the HOST (Grafana :3000, Tempo :3200, OTLP :4317)
 podman compose -f observability/compose.yaml up -d
 
 # 2. Run a playbook so the callback emits telemetry.
-#    Molecule sets OTEL_EXPORTER_OTLP_ENDPOINT for you (see molecule/default/molecule.yml):
+#    Molecule sets OTEL_EXPORTER_OTLP_ENDPOINT for you:
 uv run molecule converge
 #    ...or run directly against an inventory, exporting yourself:
 OTEL_EXPORTER_OTLP_ENDPOINT=http://host.containers.internal:4317 \
   uv run ansible-playbook -i inventories/staging/hosts.yml playbooks/site.yml
 
-# 3. Inspect the traces (Jaeger UI is published on the host)
-open http://localhost:16686            # service "ansible" / "ansible-molecule"
+# 3. Inspect the traces in Grafana
+open http://localhost:3000             # Explore → Tempo → service "ansible" / "ansible-molecule"
 
 # 4. Tear down
 podman compose -f observability/compose.yaml down
 ```
 
 > The callback runs on the **control node** (where ansible executes), not on the targets.
-> Because Jaeger runs as a sibling on the host engine, the devcontainer reaches its OTLP
-> port via `host.containers.internal:4317`, while you open the UI at `localhost:16686`
+> Because the stack runs as a sibling on the host engine, the devcontainer reaches the OTLP
+> port via `host.containers.internal:4317`, while you open Grafana at `localhost:3000`
 > directly on the host.
