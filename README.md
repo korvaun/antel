@@ -61,7 +61,8 @@ uv run ansible-playbook -i inventories/staging/hosts.yml playbooks/site.yml --ch
 uv run ansible-playbook -i inventories/staging/hosts.yml playbooks/site.yml
 
 # Test roles against throwaway podman containers (siblings on the host engine)
-uv run molecule test          # full create → converge → verify → destroy
+uv run molecule test          # full create → converge → verify → destroy (default scenario)
+uv run molecule test -s poller  # same, poller scenario
 uv run molecule converge      # just apply the playbook (keeps containers)
 
 # Python helpers

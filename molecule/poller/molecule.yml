@@ -23,7 +23,6 @@ provisioner:
     # temp directory, so ansible.cfg's relative 'roles_path = roles' doesn't resolve.
     ANSIBLE_ROLES_PATH: "${MOLECULE_PROJECT_DIRECTORY}/roles"
     ANSIBLE_CONFIG: "${MOLECULE_PROJECT_DIRECTORY}/ansible.cfg"
-    ANSIBLE_CALLBACKS_ENABLED: community.general.opentelemetry
     OTEL_EXPORTER_OTLP_ENDPOINT: http://host.containers.internal:4317
     OTEL_SERVICE_NAME: ansible-molecule
   playbooks:

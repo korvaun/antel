@@ -42,7 +42,8 @@ uv sync                                                   # install pinned toolc
 uv run yamllint . && uv run ansible-lint                  # lint YAML + Ansible
 uv run ruff check . && uv run ruff format && uv run mypy . # lint/format/type-check Python
 uv run ansible-playbook -i inventories/<env>/hosts.yml playbooks/site.yml --check --diff
-uv run molecule test                                      # podman targets: create→converge→verify→destroy
+uv run molecule test                                      # podman targets: create→converge→verify→destroy (default scenario)
+uv run molecule test -s poller                            # same, poller scenario
 uv run molecule converge                                  # apply playbook, keep containers, emit OTel
 uv run pytest                                             # Python helper tests
 ```
