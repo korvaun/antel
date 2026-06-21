@@ -234,3 +234,29 @@ downward to the APIs it calls.
    the API trace opens and the failing internal span is identifiable.
 6. *(Optional)* Once Trace Correlations is configured: confirm the clickable link
    appears directly on the span attribute.
+
+### 5.6 External backends — Grafana correlation still works
+
+The correlation described in sections 5.1–5.5 goes through Tempo only. Grafana
+never needs to query Dynatrace directly. The OTel Collector handles the fan-out:
+
+```
+Grafana ──► Tempo       (self-hosted — all correlation happens here)
+        ──► OpenSearch  (external OK — datasource connection, network access required)
+        ✗   Dynatrace   (not queried by Grafana — Collector sends to it independently)
+```
+
+**Dynatrace (SaaS or on-premise)**
+Grafana does not need a Dynatrace datasource. The Collector fans out traces to
+Dynatrace independently — see `docs/collector-multi-backend.md` for the fan-out
+configuration. Dynatrace's location is irrelevant to Grafana correlation.
+
+**OpenSearch (external or cloud)**
+OpenSearch is a standard Grafana datasource (Elasticsearch-compatible). External
+or cloud instances work identically to self-hosted — configure the endpoint URL
+and credentials in Grafana. The only hard requirement is network connectivity:
+Grafana must be able to reach the OpenSearch endpoint.
+
+```bash
+nc -zv <opensearch-host> 443   # HTTPS — or 9200 for plain HTTP
+```
