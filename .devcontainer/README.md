@@ -25,21 +25,35 @@ echo "$XDG_RUNTIME_DIR/podman/podman.sock"; ls -l "$XDG_RUNTIME_DIR/podman/podma
 
 ## VS Code settings (Dev Containers + Podman)
 
-In VS Code `settings.json`:
+**First**, install the Podman wrapper (fixes a post-reboot lock bug — see below):
+
+```bash
+cp .devcontainer/podman-wrapper ~/bin/podman-wrapper
+chmod +x ~/bin/podman-wrapper
+```
+
+Then in VS Code `settings.json`:
 
 ```json
 {
-  "dev.containers.dockerPath": "podman",
-  "dev.containers.dockerComposePath": "podman-compose",
+  "dev.containers.dockerPath": "/home/<you>/bin/podman-wrapper",
   "dev.containers.mountWaylandSocket": false
 }
 ```
 
-Or from the terminal with the CLI:
+### Post-reboot lock deadlock (Podman bug)
 
-```bash
-devcontainer up --workspace-folder . --docker-path podman
+After a reboot, Podman's lock file (`/run/user/<uid>/`, tmpfs) is cleared while the
+SQLite DB retains old `lockID`s. When the devcontainer CLI creates a volume and a
+container together (`podman run --mount type=volume,...`), both receive `lockID=0` and
+`podman start` fails with:
+
 ```
+deadlock due to lock mismatch: container X and volume vscode share lock ID 0
+```
+
+`podman-wrapper` intercepts `podman start` and runs `podman system renumber` first,
+which reassigns unique lock IDs to all existing objects before the start proceeds.
 
 ## How it fits together
 

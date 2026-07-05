@@ -1,0 +1,17 @@
+#!/bin/bash
+# Workaround for a Podman rootless bug: after reboot, the lock file in /run/user/<uid>/
+# (tmpfs) is reset while the SQLite DB retains old lockIDs. When VS Code's devcontainer
+# CLI creates a volume and a container in the same `podman run`, both receive lockID=0
+# and `podman start` fails with "deadlock due to lock mismatch".
+#
+# Fix: intercept `podman start` and run `podman system renumber` first. renumber
+# reassigns unique lockIDs to all objects (run after creation, before start), so the
+# start succeeds. All other commands are forwarded unchanged.
+#
+# Configured via VS Code setting: "dev.containers.dockerPath": "/path/to/podman-wrapper"
+# Install: cp .devcontainer/podman-wrapper ~/bin/podman-wrapper && chmod +x ~/bin/podman-wrapper
+
+if [ "$1" = "start" ]; then
+    /usr/bin/podman system renumber 2>/dev/null || true
+fi
+exec /usr/bin/podman "$@"
